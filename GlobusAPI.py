@@ -1,8 +1,11 @@
 from flask import Flask
 import globus_sdk
+import json
 
 app = Flask(__name__)
 
+endpointIDList = {"list": [{"name": "Tutorial Endpoint 1", "id": "ddb59aef-6d04-11e5-ba46-22000b92c6ec"},
+                           {"name": "Zach's Laptop", "id": "636505f6-d784-11e7-96f1-22000a8cbd7d"}]}
 CLIENT_ID = '8b721ec9-e8f7-472c-a8ac-d6b80afa7229'
 
 client = globus_sdk.NativeAppAuthClient(CLIENT_ID)
@@ -44,13 +47,6 @@ for ep in tc.endpoint_search(filter_scope="my-endpoints"):
 endChoice = tc.endpoint_search(filter_scope="my-endpoints")
 staticEnd = tc.get("/endpoint_search", params=dict(filter_fulltext="Globus Tutorial Endpoint 1", limit=1))
 
-# print(myEnd, staticEnd)
-
-# endInfo = dict(myEnd=endChoice, staticEnd=staticEnd)
-# if len(myEnd["DATA"]):
-#    print("ID: ", myEnd["DATA"][0]["id"])
-
-
 
 @app.route('/')
 def authInitial():
@@ -59,6 +55,55 @@ def authInitial():
     if len(myEnd["DATA"]):
         string = string + str(myEnd["DATA"][0]["id"])
     return string
+
+
+@app.route('/files')
+def files():
+    myEnd = tc.get("/endpoint_search", params=dict(filter_fulltext=endChoice, limit=1, filter_scope="my-endpoints"))
+    out = []
+    for file in tc.operation_ls(myEnd["DATA"][0]["id"]):
+        for item in file:
+            if item == "name":
+                fileDict = {"name": str(file[item]), "size": str(file["size"])}
+                out.append(fileDict)
+    output = {"files": out}
+    return json.dumps(output)
+
+
+@app.route('/endpoints')
+def endpointList():
+    return json.dumps(endpointIDList)
+
+
+@app.route('/transfer/<otherEndpoint>/<filename>')
+def transfer(otherEndpoint, filename):
+
+    source_endpoint_id = "636505f6-d784-11e7-96f1-22000a8cbd7d"
+    source_path = str(filename)
+    #source_path = "Time_Height.png"
+
+    # otherEndpoint = "ddb59aef-6d04-11e5-ba46-22000b92c6ec"
+    dest_endpoint_id = str(otherEndpoint)
+    dest_path = "/~/" + source_path
+    label = "tutorial transfer"
+
+    tdata = globus_sdk.TransferData(tc, source_endpoint_id, dest_endpoint_id, label=label)
+
+    tdata.add_item(source_path, dest_path)
+
+    # Alternatively, transfer a specific file
+    # tdata.add_item("/source/path/file.txt",
+    #                "/dest/path/file.txt"))
+
+    tc.endpoint_autoactivate(source_endpoint_id)
+    tc.endpoint_autoactivate(dest_endpoint_id)
+
+    submit_result = tc.submit_transfer(tdata)
+    print("Task ID:", submit_result["task_id"])
+    myEnd = tc.get("/endpoint_search", params=dict(filter_fulltext=endChoice, limit=1, filter_scope="my-endpoints"))
+    tutorial = tc.get_endpoint("ddb59aef-6d04-11e5-ba46-22000b92c6ec")
+    data = globus_sdk.TransferData(tc, myEnd, tutorial)
+    return json.dumps("Task Submitted")
 
 
 @app.route("/test")
