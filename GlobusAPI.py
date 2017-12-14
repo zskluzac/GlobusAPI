@@ -14,8 +14,6 @@ client.oauth2_start_flow(refresh_tokens=True)
 authorize_url = client.oauth2_get_authorize_url()
 print('Please go to this URL and login: {0}'.format(authorize_url))
 
-# this is to work on Python2 and Python3 -- you can just use raw_input() or
-# input() for your specific version
 get_input = getattr(__builtins__, 'raw_input', input)
 auth_code = get_input(
     'Please enter the code you get after login here: ').strip()
@@ -24,22 +22,15 @@ token_response = client.oauth2_exchange_code_for_tokens(auth_code)
 globus_auth_data = token_response.by_resource_server['auth.globus.org']
 globus_transfer_data = token_response.by_resource_server['transfer.api.globus.org']
 
-# most specifically, you want these tokens as strings
-
 REFRESH_TOKEN = globus_transfer_data['refresh_token']
 expires = globus_transfer_data['expires_at_seconds']
 AUTH_TOKEN = globus_auth_data['access_token']
 TRANSFER_TOKEN = globus_transfer_data['access_token']
 print(CLIENT_ID)
 
-# a GlobusAuthorizer is an auxiliary object we use to wrap the token. In
-# more advanced scenarios, other types of GlobusAuthorizers give us
-# expressive power
-
 authorizer = globus_sdk.RefreshTokenAuthorizer(REFRESH_TOKEN, client, access_token=AUTH_TOKEN, expires_at=expires)
 tc = globus_sdk.TransferClient(authorizer=authorizer)
 
-# high level interface; provides iterators for list responses
 print("My Endpoints:")
 for ep in tc.endpoint_search(filter_scope="my-endpoints"):
     print("[{}] {}".format(ep["id"], ep["display_name"]))
@@ -80,9 +71,7 @@ def transfer(otherEndpoint, filename):
 
     source_endpoint_id = "636505f6-d784-11e7-96f1-22000a8cbd7d"
     source_path = str(filename)
-    #source_path = "Time_Height.png"
 
-    # otherEndpoint = "ddb59aef-6d04-11e5-ba46-22000b92c6ec"
     dest_endpoint_id = str(otherEndpoint)
     dest_path = "/~/" + source_path
     label = "tutorial transfer"
@@ -90,10 +79,6 @@ def transfer(otherEndpoint, filename):
     tdata = globus_sdk.TransferData(tc, source_endpoint_id, dest_endpoint_id, label=label)
 
     tdata.add_item(source_path, dest_path)
-
-    # Alternatively, transfer a specific file
-    # tdata.add_item("/source/path/file.txt",
-    #                "/dest/path/file.txt"))
 
     tc.endpoint_autoactivate(source_endpoint_id)
     tc.endpoint_autoactivate(dest_endpoint_id)
